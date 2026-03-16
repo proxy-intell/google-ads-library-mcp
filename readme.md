@@ -12,8 +12,6 @@ https://github.com/user-attachments/assets/a47aa689-e89d-4d4b-9df7-6eb3a81937ee
 
 > To get updates on this and other projects we work on [subscribe here](https://talknerdytome88.substack.com/subscribe)
 
-PS: Join our [Twitter community](https://twitter.com/i/communities/1937504082635170114) for all things MCP 
-
 ---
 
 ## Example Prompts
@@ -213,7 +211,7 @@ For additional Claude Desktop integration troubleshooting, see the [MCP document
 
 ## Feedback
 
-Your feedback will be massively appreciated. Please [tell us](mailto:tanmay@usegala.com) which features on that list you like to see next or request entirely new ones.
+Your feedback will be massively appreciated. Please [tell us](mailto:support@useproxy.dev) which features on that list you like to see next or request entirely new ones.
 
 ---
 
