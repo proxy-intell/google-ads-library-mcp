@@ -10,7 +10,7 @@ Here's an example of what you can do when it's connected to Claude.
 https://github.com/user-attachments/assets/a47aa689-e89d-4d4b-9df7-6eb3a81937ee
 
 
-> To get updates on this and other projects we work on [subscribe here](https://talknerdytome88.substack.com/subscribe)
+> To try out the hosted version of ths MCP in ChatGPT, Claude, Manus or anywhere just [subscribe here](https://useproxy.dev/)
 
 ---
 
