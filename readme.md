@@ -1,3 +1,5 @@
+[![GitHub Banner](https://github.com/user-attachments/assets/e5ad1935-1274-4c12-8c34-37eb2bb3f807)](https://useproxy.dev/)
+
 # Google Ads Library MCP Server
 
 This is a Model Context Protocol (MCP) server for the Google Ads Transparency Center.
