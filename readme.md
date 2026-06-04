@@ -1,4 +1,4 @@
-[![GitHub Banner](https://github.com/user-attachments/assets/e5ad1935-1274-4c12-8c34-37eb2bb3f807)](https://useproxy.dev/)
+[![Proxy — Google Ads Library Hosted MCP](assets/banner.png)](https://useproxy.dev/)
 
 # Google Ads Library MCP Server
 
@@ -12,7 +12,17 @@ Here's an example of what you can do when it's connected to Claude.
 https://github.com/user-attachments/assets/a47aa689-e89d-4d4b-9df7-6eb3a81937ee
 
 
-> To try out the hosted version of ths MCP in ChatGPT, Claude, Manus or anywhere just [subscribe here](https://useproxy.dev/)
+---
+
+## Hosted Version
+
+Don't want to manage API keys or run anything yourself? **[Proxy](https://useproxy.dev/)** offers a fully hosted version of this MCP — no setup, no infrastructure, no separate ads data subscription.
+
+- Works out of the box in ChatGPT, Claude, Manus, and anywhere else that supports MCP
+- Nothing to install or configure — just connect and start querying
+- [Start for free here](https://useproxy.dev/)
+
+If you'd rather self-host, the full setup instructions are below.
 
 ---
 
@@ -43,8 +53,10 @@ Do a deep comparison to the messaging between 'AnthropicAI', 'Perplexity AI' and
 - Python 3.12+
 - Anthropic Claude Desktop app (or Cursor)
 - Pip (Python package manager), install with `python -m pip install`
-- An access token for [Scrape Creators](https://scrapecreators.com/?via=tntm)
+- An API key for an ads data provider, set as `SCRAPECREATORS_API_KEY` (see configuration below)
 - A Google Gemini API key for video analysis (optional, only needed for video ads)
+
+> Prefer not to deal with API keys? See the [Hosted Version](#hosted-version) above to skip setup entirely.
 
 ### Quick Install (Recommended)
 
@@ -64,7 +76,7 @@ Do a deep comparison to the messaging between 'AnthropicAI', 'Perplexity AI' and
 2. **Configure your API keys**
 
    Edit the `.env` file that was created and add your API keys:
-   - Get your ScrapeCreators API key at [scrapecreators.com](https://scrapecreators.com/?via=tntm)
+   - Set your ads data API key as `SCRAPECREATORS_API_KEY`
    - Get your Gemini API key at [Google AI Studio](https://aistudio.google.com/app/apikey) (optional, for video analysis)
 
 3. **Follow the displayed MCP configuration**
@@ -98,7 +110,7 @@ If you prefer to install manually:
    ```
 
    **To obtain API keys:**
-   - Sign up for Scrape Creators [here](https://scrapecreators.com/?via=tntm)
+   - Set your ads data API key as `SCRAPECREATORS_API_KEY` in the `.env` file
    - Get a Google Gemini API key [here](https://aistudio.google.com/app/apikey) (optional, for video analysis)
 
 4. **Connect to the MCP server**
@@ -149,7 +161,7 @@ If you prefer to install manually:
 ## Technical Details
 
 1. Claude sends requests to the Python MCP server
-2. The MCP server queries the ScrapeCreators API for Google Ads Transparency Center data
+2. The MCP server queries the ads data API for Google Ads Transparency Center data
 3. Data flows back through the chain to Claude
 
 ### Google Ads
