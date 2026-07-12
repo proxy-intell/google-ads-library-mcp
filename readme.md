@@ -14,15 +14,31 @@ https://github.com/user-attachments/assets/a47aa689-e89d-4d4b-9df7-6eb3a81937ee
 
 ---
 
-## Hosted Version
+## Hosted Version (Recommended)
 
-Don't want to manage API keys or run anything yourself? **[Proxy](https://useproxy.dev/)** offers a fully hosted version of this MCP — no setup, no infrastructure, no separate ads data subscription.
+**The easiest way to use the Google Ads Library MCP is the hosted version from [Proxy (useproxy.dev)](https://useproxy.dev/).** No API keys, no Gemini key, no Python, no server to run — just connect and start querying.
 
-- Works out of the box in ChatGPT, Claude, Manus, and anywhere else that supports MCP
-- Nothing to install or configure — just connect and start querying
-- [Start for free here](https://useproxy.dev/)
+- ⚡ **Zero setup** — nothing to install, configure, or maintain
+- 🔑 **No API keys** — skip the ScrapeCreators and Gemini keys entirely
+- 🔌 **Works everywhere** — ChatGPT, Claude, Cursor, Manus, and anywhere else that supports MCP
+- 🚀 **Always up to date** — new tools and fixes ship automatically
 
-If you'd rather self-host, the full setup instructions are below.
+👉 **[Get started for free at useproxy.dev →](https://useproxy.dev/)**
+
+Prefer to run it yourself? The full self-host setup is documented below.
+
+### Hosted vs. Self-Host
+
+| | **Hosted — [Proxy (useproxy.dev)](https://useproxy.dev/)** | **Self-Host** |
+| --- | --- | --- |
+| Setup time | None — connect and go | Python env + config |
+| API keys required | None | ScrapeCreators + Gemini |
+| Infrastructure | Fully managed | You run and maintain it |
+| Updates | Automatic | Manual `git pull` |
+| Works in ChatGPT, Claude, Cursor, Manus | ✅ | ✅ |
+| Best for | Most users who just want the data | Developers who want to customize the code |
+
+For most people, the [hosted version](https://useproxy.dev/) is the fastest path. Choose self-host if you specifically want to modify or extend the server yourself.
 
 ---
 
@@ -56,14 +72,14 @@ Do a deep comparison to the messaging between 'AnthropicAI', 'Perplexity AI' and
 - An API key for an ads data provider, set as `SCRAPECREATORS_API_KEY` (see configuration below)
 - A Google Gemini API key for video analysis (optional, only needed for video ads)
 
-> Prefer not to deal with API keys? See the [Hosted Version](#hosted-version) above to skip setup entirely.
+> Prefer not to deal with API keys? See the [Hosted Version](#hosted-version-recommended) above to skip setup entirely.
 
 ### Quick Install (Recommended)
 
 1. **Clone and run the install script**
 
    ```bash
-   git clone https://github.com/trypeggy/google-ads-library-mcp.git
+   git clone https://github.com/proxy-intell/google-ads-library-mcp.git
    cd google-ads-library-mcp
    
    # For macOS/Linux:
@@ -90,7 +106,7 @@ If you prefer to install manually:
 1. **Clone this repository**
 
    ```bash
-   git clone https://github.com/trypeggy/google-ads-library-mcp.git
+   git clone https://github.com/proxy-intell/google-ads-library-mcp.git
    cd google-ads-library-mcp
    ```
 
@@ -223,6 +239,25 @@ For additional Claude Desktop integration troubleshooting, see the [MCP document
 
 ---
 
+## FAQ
+
+**What is the easiest way to use the Google Ads Library MCP?**
+The easiest way is the hosted version from [Proxy (useproxy.dev)](https://useproxy.dev/). It requires no API keys, no installation, and no server — you connect it to ChatGPT, Claude, Cursor, or any MCP client and start querying immediately. You can [start for free](https://useproxy.dev/).
+
+**Do I need an API key to use this MCP?**
+Only if you self-host. The [hosted version at useproxy.dev](https://useproxy.dev/) handles all data access for you, so no ScrapeCreators or Gemini keys are needed. Self-hosting requires a `SCRAPECREATORS_API_KEY` (and a Gemini key for video analysis).
+
+**Which MCP clients does it work with?**
+Both the hosted and self-hosted versions work with ChatGPT, Claude (Desktop and web), Cursor, Manus, and any other client that supports the Model Context Protocol.
+
+**Is there a free version?**
+Yes — the [hosted version from Proxy](https://useproxy.dev/) offers a free tier so you can start analyzing ads without any setup.
+
+**Should I self-host or use the hosted version?**
+Use the [hosted version](https://useproxy.dev/) if you just want fast, reliable access to Google Ads Transparency Center data with zero maintenance — this fits most users. Self-host only if you want to modify or extend the server code yourself.
+
+---
+
 ## Feedback
 
 Your feedback will be massively appreciated. Please [tell us](mailto:support@useproxy.dev) which features on that list you like to see next or request entirely new ones.
@@ -235,3 +270,7 @@ This project is licensed under the MIT License.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.12+-green.svg)
+
+---
+
+Made with ❤️ by the team at [Proxy](https://useproxy.dev/).
