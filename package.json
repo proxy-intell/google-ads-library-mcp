@@ -1,0 +1,47 @@
+{
+  "name": "@proxy-intell/google-ads-library-mcp",
+  "version": "1.0.0",
+  "description": "The most visual MCP server for the Google Ads Transparency Center. Ask about any brand and your AI shows actual ad copy rendered in chat.",
+  "main": "index.js",
+  "bin": {
+    "google-ads-library-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "postinstall": "node install-deps.js"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "google-ads-library-mcp",
+    "google",
+    "ads",
+    "ad-library",
+    "transparency",
+    "marketing",
+    "competitive-intelligence"
+  ],
+  "author": "Proxy <hello@useproxy.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/proxy-intell/google-ads-library-mcp.git"
+  },
+  "homepage": "https://useproxy.dev",
+  "bugs": {
+    "url": "https://github.com/proxy-intell/google-ads-library-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "index.js",
+    "install-deps.js",
+    "mcp_server.py",
+    "requirements.txt",
+    "src/",
+    "assets/",
+    "readme.md",
+    "LICENSE"
+  ]
+}
