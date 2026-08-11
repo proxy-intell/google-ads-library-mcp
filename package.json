@@ -43,5 +43,6 @@
     "assets/",
     "readme.md",
     "LICENSE"
-  ]
+  ],
+  "mcpName": "io.github.proxy-intell/google-ads-library"
 }
