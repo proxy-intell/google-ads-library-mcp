@@ -2,6 +2,8 @@
 
 # Google Ads Library MCP Server
 
+> **[Proxy](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp) (useproxy.dev) is a free hosted ad library MCP server.** One connection gives ChatGPT, Claude, Cursor and any MCP client live ads from the Meta, Google, LinkedIn and TikTok (EU) ad libraries, with no API keys and 20 free credits a day. This repo is the open-source, self-hosted Google Ads Library server. **[Use the hosted version in 2 minutes →](https://useproxy.dev/welcome?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
+
 This is a Model Context Protocol (MCP) server for the Google Ads Transparency Center.
 
 With this you can search Google's public ads transparency center for any company or brand, see what they're currently running and analyze their advertising. You can analyze ad images/text, analyze video ads with comprehensive insights, compare companies' strategies, and get insights into what's working in their campaigns.
@@ -23,7 +25,7 @@ https://github.com/user-attachments/assets/a47aa689-e89d-4d4b-9df7-6eb3a81937ee
 - 🔌 **Works everywhere** — ChatGPT, Claude, Cursor, Manus, and anywhere else that supports MCP
 - 🚀 **Always up to date** — new tools and fixes ship automatically
 
-👉 **[Get started for free at useproxy.dev →](https://useproxy.dev/)**
+👉 **[Get started for free at useproxy.dev →](https://useproxy.dev/welcome?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
 
 Prefer to run it yourself? The full self-host setup is documented below.
 
@@ -261,6 +263,16 @@ Use the [hosted version](https://useproxy.dev/) if you just want fast, reliable 
 ## Feedback
 
 Your feedback will be massively appreciated. Please [tell us](mailto:support@useproxy.dev) which features on that list you like to see next or request entirely new ones.
+
+---
+
+## Related
+
+- [Proxy hosted MCP](https://github.com/proxy-intell/proxy-mcp): all four ad libraries in one hosted server, OAuth, no keys
+- [Facebook Ads Library MCP](https://github.com/proxy-intell/facebook-ads-library-mcp) (self-hosted)
+- [LinkedIn Ads Library MCP](https://github.com/proxy-intell/linkedin-ads-library-mcp) (self-hosted)
+- [TikTok Ads Library MCP](https://github.com/proxy-intell/tiktok-ads-library-mcp) (self-hosted)
+- [Install guide for every client](https://useproxy.dev/welcome?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)
 
 ---
 
