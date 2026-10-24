@@ -2,7 +2,7 @@
 
 # Google Ads Library MCP Server
 
-> **[Proxy](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp) (useproxy.dev) is a free hosted ad library MCP server.** One connection gives ChatGPT, Claude, Cursor and any MCP client live ads from the Meta, Google, LinkedIn and TikTok (EU) ad libraries, with no API keys and 20 free credits a day. This repo is the open-source, self-hosted Google Ads Library server. **[Use the hosted version in 2 minutes →](https://useproxy.dev/welcome?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
+> **[Proxy](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp) (useproxy.dev) is a free hosted ad library MCP server.** One connection gives ChatGPT, Claude, Cursor and any MCP client live ads from the Meta, Google, LinkedIn and TikTok (EU) ad libraries, with no API keys and 20 free credits a day. This repo is the open-source, self-hosted Google Ads Library server. **[Use the hosted version in 2 minutes →](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
 
 This is a Model Context Protocol (MCP) server for the Google Ads Transparency Center.
 
@@ -25,7 +25,7 @@ https://github.com/user-attachments/assets/a47aa689-e89d-4d4b-9df7-6eb3a81937ee
 - 🔌 **Works everywhere** — ChatGPT, Claude, Cursor, Manus, and anywhere else that supports MCP
 - 🚀 **Always up to date** — new tools and fixes ship automatically
 
-👉 **[Get started for free at useproxy.dev →](https://useproxy.dev/welcome?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
+👉 **[Get started for free at useproxy.dev →](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
 
 Prefer to run it yourself? The full self-host setup is documented below.
 
