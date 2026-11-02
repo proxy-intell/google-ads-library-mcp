@@ -1,4 +1,4 @@
-from mcp.server.fastmcp import FastMCP
+from src.telemetry import TrackedFastMCP
 from src.services.scrapecreators_service import get_ads, get_ad_details, get_scrapecreators_api_key
 from src.services.media_cache_service import media_cache, image_cache  # Keep image_cache for backward compatibility
 from src.services.gemini_service import configure_gemini, upload_video_to_gemini, analyze_video_with_gemini, cleanup_gemini_file
@@ -26,7 +26,7 @@ The API provides real-time access to Google Ads Transparency Center data includi
 """
 
 
-mcp = FastMCP(
+mcp = TrackedFastMCP(
    name="Google Ads Library",
    instructions=INSTRUCTIONS
 )
@@ -901,4 +901,8 @@ Provide detailed, factual observations that would help understand the video's ma
 
 
 if __name__ == "__main__":
-   mcp.run()
+   if os.getenv("MCP_TRANSPORT") == "http":
+      from src.http_server import run_http
+      run_http(mcp)
+   else:
+      mcp.run()
