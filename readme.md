@@ -3,7 +3,7 @@
 # Google Ads Library MCP Server
 
 > [!TIP]
-> **[Proxy](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp) (useproxy.dev) is the free hosted version of this server.** One connection gives ChatGPT, Claude, Cursor and any MCP client live ads from the Meta, Google, LinkedIn and TikTok (EU) ad libraries, with no API keys and 20 free credits a day. **[Use it in 2 minutes, with 2x credits for your first month →](https://useproxy.dev/me/selfhost-google?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
+> **[Proxy](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp) (useproxy.dev) is the free hosted version of this server.** One connection gives ChatGPT, Claude, Cursor and any MCP client live ads from the Meta, Google, LinkedIn and TikTok (EU) ad libraries, with no API keys and 20 free credits a day. **[Use it in 2 minutes →](https://useproxy.dev/me/selfhost-google?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
 
 > [!WARNING]
 > This repo is the open-source, self-hosted Google server, for personal use and tinkering. It covers one platform, you pay ScrapeCreators for every call (about $1.88 per 1,000 after 100 free credits), and it doesn't get every feature hosted Proxy has. For client work or a team, [use hosted Proxy](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp).
@@ -29,7 +29,7 @@ https://github.com/user-attachments/assets/a47aa689-e89d-4d4b-9df7-6eb3a81937ee
 - 🔌 **Works everywhere** — ChatGPT, Claude, Cursor, Manus, and anywhere else that supports MCP
 - 🚀 **Always up to date** — new tools and fixes ship automatically
 
-👉 **[Get started free, with 2x credits for your first month →](https://useproxy.dev/me/selfhost-google?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
+👉 **[Get started for free at useproxy.dev →](https://useproxy.dev/me/selfhost-google?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)**
 
 Prefer to run it yourself? The full self-host setup is documented below.
 
