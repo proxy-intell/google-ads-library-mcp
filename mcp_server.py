@@ -1,29 +1,45 @@
-from src.telemetry import TrackedFastMCP
-from src.services.scrapecreators_service import get_ads, get_ad_details, get_scrapecreators_api_key
-from src.services.media_cache_service import media_cache, image_cache  # Keep image_cache for backward compatibility
-from src.services.gemini_service import configure_gemini, upload_video_to_gemini, analyze_video_with_gemini, cleanup_gemini_file
-from typing import Dict, Any, List, Optional
-import requests
-import base64
-import tempfile
-import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load .env before the services read their settings (GEMINI_MODEL, API keys).
 load_dotenv()
+
+from src.telemetry import TrackedFastMCP
+from src.services.scrapecreators_service import get_ads, get_ad_details, get_scrapecreators_api_key, search_advertisers
+from src.services.media_cache_service import media_cache, image_cache  # Keep image_cache for backward compatibility
+from src.services.gemini_service import GEMINI_MODEL, configure_gemini, upload_video_to_gemini, analyze_video_with_gemini, cleanup_gemini_file
+from src import ad_history
+from src.playbooks import PLAYBOOKS, TRIGGERS
+from mcp.server.fastmcp import Image
+from typing import Dict, Any, List, Optional, Union
+import json
+import re
+import requests
+import os
 
 
 INSTRUCTIONS = """
-This server provides access to Google's Ads Transparency Center data through the ScrapeCreators API.
-It allows you to search for companies/brands and retrieve their currently running advertisements.
+This server provides access to Google's Ads Transparency Center (Search, Display, YouTube) through the ScrapeCreators API.
 
 Workflow:
-1. Use get_google_ads to search for ads by company domain or advertiser ID
-2. Use get_google_ad_details to get detailed information about specific ads
-3. Use analyze_ad_image/analyze_ad_video for comprehensive media analysis
+1. get_google_platform_id finds a brand's advertiser IDs and domains (pass the bare name or bare domain).
+2. get_google_ads returns an advertiser's ads by domain or advertiser_id.
+3. get_google_ad_details on an adUrl gives headlines, descriptions, image URLs and regions.
+4. analyze_ad_image / analyze_ad_video for creative analysis.
 
-The API provides real-time access to Google Ads Transparency Center data including ad content, media, dates, and targeting information.
+Re-running get_google_ads for an advertiser 24h+ later reports which ads are new and how many
+dropped out since the last fetch. For a research job (competitor teardown, prospect lists,
+weekly competitor tracking) call get_playbook first and follow it.
 """
+
+IMAGE_ANALYSIS_PROMPT = """Analyze this ad image and extract:
+- Overall: what is shown, the story or message, emotional tone.
+- Text: transcribe ALL text; tag each as Headline Hook, Value Proposition, CTA, Disclaimer, Brand Name or Other.
+- People: age range, gender, appearance, pose, expression, setting.
+- Brand: logos (position), products shown, brand colors.
+- Composition: layout, visual hierarchy (first, second, third), text overlay vs separate text.
+- Style: dominant colors, background, photography style (studio, UGC, lifestyle), filters.
+- Audience cues: who this targets and why.
+Report facts first; mark inference as such."""
 
 
 mcp = TrackedFastMCP(
@@ -33,7 +49,56 @@ mcp = TrackedFastMCP(
 
 
 @mcp.tool(
-  description="Retrieve currently running ads for a company from Google Ads Transparency Center. Use this tool to get ads for a company using their domain (e.g., 'nike.com') or advertiser ID. You can filter by topic (including political ads) and region. For complete analysis of visual elements, colors, design, or image content, you MUST also use analyze_ad_image on the imageUrl from each ad's details.",
+  description="Find a brand's Google advertiser IDs and domains in the Google Ads Transparency Center: the first step before get_google_ads. Pass the bare brand name (\"Purina\") or the bare domain (\"purina.com.mx\"), never both and never a country or city. Results span all countries; pick the advertiser whose region matches the user's market. Several brands: pass one list.",
+  annotations={
+    "title": "Search Google Advertisers",
+    "readOnlyHint": True,
+    "openWorldHint": True
+  }
+)
+def get_google_platform_id(brand_name: Union[str, List[str]]) -> Dict[str, Any]:
+    """Search Google Ads Transparency Center for advertisers matching a brand name or domain.
+
+    Args:
+        brand_name: Bare brand name or bare domain, or a list of them.
+
+    Returns:
+        success, message, results ({brand: {advertisers: [{name, advertiser_id, region}], websites: [{domain}], searched}}),
+        total_results, error. Call get_google_ads with advertiser_id and/or domain: they can return different accounts.
+    """
+    names = list(dict.fromkeys(n.strip() for n in ([brand_name] if isinstance(brand_name, str) else brand_name or []) if n and str(n).strip()))
+    if not names:
+        return {"success": False, "message": "brand_name must be a non-empty name or domain, or a list of them.", "results": {}, "total_results": 0, "error": "Missing brand name"}
+
+    results, notes, total = {}, [], 0
+    for name in names:
+        try:
+            found = search_advertisers(name)
+        except Exception as e:
+            # Keep the error visible: an empty result would read as "not on Google".
+            results[name] = {"error": str(e)}
+            notes.append(f"'{name}': lookup failed (not confirmed absent): {e}")
+            continue
+        n = len(found["advertisers"]) + len(found["websites"])
+        total += n
+        results[name] = found
+        if n == 0:
+            notes.append(f"'{name}': no advertisers or domains matched. Retry with the bare brand name or bare domain.")
+        elif found["searched"] != name:
+            notes.append(f"'{name}': no exact match; results are for '{found['searched']}'. Check they are the intended brand.")
+    failed = sum("error" in r for r in results.values())
+    return {
+        "success": failed < len(names),
+        "message": f"Found {total} advertiser(s)/domain(s) for {len(names)} brand(s)." + (" " + " ".join(notes) if notes else ""),
+        "results": results,
+        "total_results": total,
+        "ad_transparency_url": "https://adstransparency.google.com/",
+        "error": None if failed < len(names) else "All lookups failed",
+    }
+
+
+@mcp.tool(
+  description="Retrieve currently running ads for a company from Google Ads Transparency Center. Use this tool to get ads for a company using their domain (e.g., 'nike.com') or advertiser ID. You can filter by topic (including political ads) and region. The result's changes block lists ads first shown in the last 7 days and, when the same advertiser was fetched with the same filters 24h+ ago, which ads are new since then and how many dropped out. For complete analysis of visual elements, colors, design, or image content, you MUST also use analyze_ad_image on the imageUrl from each ad's details.",
   annotations={
     "title": "Get Google Ads for Company",
     "readOnlyHint": True,
@@ -105,6 +170,11 @@ def get_google_ads(
         )
         
         ads = result.get('ads', [])
+        # Pagination pages are not a new fetch: only first pages update the history.
+        changes = None if cursor else ad_history.changes(
+            f"google:{domain}:{advertiser_id}:{topic}:{region}:{limit}",
+            [{"ad_id": a.get("creativeId") or a.get("adUrl"), "start_date": a.get("firstShown")} for a in ads],
+        )
         
         if not ads:
             identifier = domain or advertiser_id
@@ -112,6 +182,7 @@ def get_google_ads(
                 "success": True,
                 "message": f"No current ads found for '{identifier}' in Google Ads Transparency Center.",
                 "ads": [],
+                "changes": changes,
                 "cursor": None,
                 "statusCode": result.get('statusCode', 200),
                 "error": None
@@ -122,6 +193,7 @@ def get_google_ads(
             "success": True,
             "message": f"Successfully retrieved {len(ads)} ads for '{identifier}' from Google Ads Transparency Center.",
             "ads": ads,
+            "changes": changes,
             "cursor": result.get('cursor'),
             "statusCode": result.get('statusCode', 200),
             "ad_transparency_url": "https://adstransparency.google.com/",
@@ -237,213 +309,61 @@ def get_google_ad_details(ad_url: str) -> Dict[str, Any]:
 
 
 @mcp.tool(
-  description="REQUIRED for analyzing images from Google ads. Download and analyze ad images to extract visual elements, text content, colors, people, brand elements, and composition details. This tool should be used for EVERY image URL returned by get_google_ads when doing comprehensive analysis. Uses intelligent caching so multiple image analysis calls are efficient and cost-free.",
+  description="Analyze a Google ad image: returns the image itself so you can see it, plus a checklist (text, hooks, people, brand elements, composition, colors). Pass one imageUrl from a get_google_ad_details variation. Downloads are cached locally.",
   annotations={
     "title": "Analyze Ad Image Content",
     "readOnlyHint": True,
     "openWorldHint": True
   }
 )
-def analyze_ad_image(media_url: str, brand_name: Optional[str] = None, ad_id: Optional[str] = None) -> Dict[str, Any]:
-    """Download Google ad images and prepare them for visual analysis by Claude Desktop.
-    
-    This tool downloads images from Google Ads Transparency Center URLs and provides them in a format
-    that Claude Desktop can analyze using its vision capabilities. Images are cached locally
-    to avoid re-downloading. The tool provides detailed analysis instructions to ensure
-    comprehensive, objective visual analysis.
-    
+def analyze_ad_image(media_url: str, brand_name: Optional[str] = None, ad_id: Optional[str] = None) -> Any:
+    """Download a Google ad image and hand it to the model for visual analysis.
+
+    The image comes back as an image content block, so the model sees it with its own vision,
+    plus a short checklist of what to extract. Downloads are cached locally.
+
     Args:
-        media_url: The direct URL to the Google ad image to analyze.
+        media_url: An imageUrl from a get_google_ad_details variation.
         brand_name: Optional brand name for cache organization.
-        ad_id: Optional ad ID for tracking purposes.
-    
-    Returns:
-        A dictionary containing:
-        - success: Boolean indicating if download was successful
-        - message: Status message
-        - cached: Boolean indicating if image was retrieved from cache
-        - image_data: Base64 encoded image data for Claude Desktop analysis
-        - media_url: Original image URL
-        - brand_name: Brand name if provided
-        - ad_id: Ad ID if provided  
-        - analysis_instructions: Detailed prompt for objective visual analysis
-        - cache_status: Information about cache usage
-        - error: Error details if download failed
+        ad_id: Optional creative ID for tracking.
     """
     if not media_url or not media_url.strip():
-        return {
-            "success": False,
-            "message": "Media URL must be provided and cannot be empty.",
-            "cached": False,
-            "analysis": {},
-            "cache_info": {},
-            "error": "Missing or empty media URL"
-        }
-    
+        return {"success": False, "message": "media_url must be provided and cannot be empty.", "error": "Missing media URL"}
+    media_url = media_url.strip()
     try:
-        # Check cache first
-        cached_data = image_cache.get_cached_image(media_url.strip())
-        
-        if cached_data and cached_data.get('analysis_results'):
-            # Return cached analysis results
-            return {
-                "success": True,
-                "message": f"Retrieved cached analysis for {media_url}",
-                "cached": True,
-                "analysis": cached_data['analysis_results'],
-                "cache_info": {
-                    "cached_at": cached_data.get('downloaded_at'),
-                    "analysis_cached_at": cached_data.get('analysis_cached_at'),
-                    "file_size": cached_data.get('file_size'),
-                    "brand_name": cached_data.get('brand_name'),
-                    "ad_id": cached_data.get('ad_id')
-                },
-                "error": None
-            }
-        
-        # Determine if we need to download
-        image_data = None
-        content_type = None
-        file_size = None
-        
-        if cached_data:
-            # Image is cached but no analysis results yet
+        cached = image_cache.get_cached_image(media_url)
+        image_bytes, content_type = None, None
+        if cached:
             try:
-                with open(cached_data['file_path'], 'rb') as f:
+                with open(cached['file_path'], 'rb') as f:
                     image_bytes = f.read()
-                image_data = base64.b64encode(image_bytes).decode('utf-8')
-                content_type = cached_data['content_type']
-                file_size = cached_data['file_size']
-            except Exception as e:
-                # Cache file corrupted, will re-download
-                cached_data = None
-        
-        if not cached_data:
-            # Download the image
-            response = requests.get(media_url.strip(), timeout=30)
+                content_type = cached['content_type']
+            except OSError:
+                cached = None  # cache file gone, download again
+        if not cached:
+            response = requests.get(media_url, timeout=30)
             response.raise_for_status()
-            
-            # Check if it's an image
             content_type = response.headers.get('content-type', '').lower()
-            if not any(img_type in content_type for img_type in ['image/', 'jpeg', 'jpg', 'png', 'gif', 'webp']):
-                return {
-                    "success": False,
-                    "message": f"URL does not point to a valid image. Content type: {content_type}",
-                    "cached": False,
-                    "analysis": {},
-                    "cache_info": {},
-                    "error": f"Invalid content type: {content_type}"
-                }
-            
-            # Cache the downloaded image
-            file_path = image_cache.cache_image(
-                url=media_url.strip(),
-                image_data=response.content,
-                content_type=content_type,
-                brand_name=brand_name,
-                ad_id=ad_id
-            )
-            
-            # Encode for analysis
-            image_data = base64.b64encode(response.content).decode('utf-8')
-            file_size = len(response.content)
-        
-        # Construct comprehensive analysis prompt - let Claude Desktop control presentation
-        analysis_prompt = """
-Analyze this Google ad image and extract ALL factual information about:
+            if not content_type.startswith('image/'):
+                return {"success": False, "message": f"URL does not point to an image (content type: {content_type}).", "error": f"Invalid content type: {content_type}"}
+            image_cache.cache_image(url=media_url, image_data=response.content, content_type=content_type, brand_name=brand_name, ad_id=ad_id)
+            image_bytes = response.content
 
-**Overall Visual Description:**
-- Complete description of what is shown in the image
-
-**Text Elements:**
-- Identify and transcribe ALL text present in the image
-- Categorize each text element as:
-  * "Headline Hook" (designed to grab attention)
-  * "Value Proposition" (explains the benefit to the viewer)
-  * "Call to Action (CTA)" (tells the viewer what to do next)
-  * "Referral" (prompts the viewer to share the product)
-  * "Disclaimer" (legal text, terms, conditions)
-  * "Brand Name" (company or product names)
-  * "Other" (any other text)
-
-**People Description:**
-- For each person visible: age range, gender, appearance, clothing, pose, facial expression, setting
-
-**Brand Elements:**
-- Logos present (describe and position)
-- Product shots (describe what products are shown)
-- Brand colors or visual identity elements
-
-**Composition & Layout:**
-- Layout structure (grid, asymmetrical, centered, etc.)
-- Visual hierarchy (what draws attention first, second, third)
-- Element positioning (top-left, center, bottom-right, etc.)
-- Text overlay vs separate text areas
-- Use of composition techniques (rule of thirds, leading lines, symmetry, etc.)
-
-**Colors & Visual Style:**
-- List ALL dominant colors (specific color names or hex codes if possible)
-- Background color/type and style
-- Photography style (professional, candid, studio, lifestyle, etc.)
-- Any filters, effects, or styling applied
-
-**Technical & Target Audience Indicators:**
-- Image format and aspect ratio
-- Text readability and contrast
-- Overall image quality
-- Visual cues about target audience (age, lifestyle, interests, demographics)
-- Setting/environment details
-
-**Message & Theme:**
-- What story or message the visual conveys
-- Emotional tone and mood
-- Marketing strategy indicators
-
-Extract ALL this information comprehensively. The presentation format (summary vs detailed breakdown) will be determined based on the user's specific request context.
-"""
-        
-        # Return simplified response for Claude Desktop to process
-        # Include the image data directly for Claude's vision analysis
-        response = {
+        info = {
             "success": True,
-            "message": f"Image downloaded and ready for analysis.",
-            "cached": bool(cached_data),
-            "image_data": image_data,
             "media_url": media_url,
             "brand_name": brand_name,
             "ad_id": ad_id,
-            "analysis_instructions": analysis_prompt,
-            "ad_library_url": "https://adstransparency.google.com/",
-            "source_citation": f"[Google Ads Transparency Center - {brand_name if brand_name else 'Ad'} #{ad_id if ad_id else 'Unknown'}]({media_url})",
-            "error": None
+            "ad_transparency_url": "https://adstransparency.google.com/",
+            "cache_status": "Used cached image" if cached else "Downloaded and cached new image",
+            "analysis_instructions": IMAGE_ANALYSIS_PROMPT,
         }
-        
-        # Add cache info
-        if cached_data:
-            response["cache_status"] = "Used cached image"
-        else:
-            response["cache_status"] = "Downloaded and cached new image"
-            
-        return response
-        
+        fmt = content_type.split('/')[-1].split(';')[0].replace('jpg', 'jpeg')
+        return [json.dumps(info), Image(data=image_bytes, format=fmt)]
     except requests.exceptions.RequestException as e:
-        return {
-            "success": False,
-            "message": f"Failed to download image from {media_url}: {str(e)}",
-            "cached": False,
-            "analysis": {},
-            "cache_info": {},
-            "error": f"Network error: {str(e)}"
-        }
+        return {"success": False, "message": f"Failed to download image from {media_url}: {str(e)}", "error": f"Network error: {str(e)}"}
     except Exception as e:
-        return {
-            "success": False,
-            "message": f"Failed to process image from {media_url}: {str(e)}",
-            "cached": False,
-            "analysis": {},
-            "cache_info": {},
-            "error": str(e)
-        }
+        return {"success": False, "message": f"Failed to process image from {media_url}: {str(e)}", "error": str(e)}
 
 
 @mcp.tool(
@@ -650,127 +570,7 @@ def search_cached_images(brand_name: Optional[str] = None, has_people: Optional[
 cleanup_image_cache = cleanup_media_cache
 
 
-@mcp.tool(
-  description="REQUIRED for analyzing video ads from Google. Download and analyze ad videos using Gemini's advanced video understanding capabilities. Extracts visual storytelling, audio elements, pacing, scene transitions, brand messaging, and marketing strategy insights. Uses intelligent caching for efficiency and includes comprehensive video analysis.",
-  annotations={
-    "title": "Analyze Ad Video Content",
-    "readOnlyHint": True,
-    "openWorldHint": True
-  }
-)
-def analyze_ad_video(media_url: str, brand_name: Optional[str] = None, ad_id: Optional[str] = None) -> Dict[str, Any]:
-    """Download Google ad videos and analyze them using Gemini's video understanding capabilities.
-    
-    This tool downloads videos from Google Ads Transparency Center URLs and provides comprehensive analysis
-    using Google's Gemini AI model. Videos are cached locally to avoid re-downloading, and 
-    analysis results are cached to improve performance and reduce API costs.
-    
-    Args:
-        media_url: The direct URL to the Google ad video to analyze.
-        brand_name: Optional brand name for cache organization.
-        ad_id: Optional ad ID for tracking purposes.
-    
-    Returns:
-        A dictionary containing:
-        - success: Boolean indicating if analysis was successful
-        - message: Status message
-        - cached: Boolean indicating if video was retrieved from cache
-        - analysis: Comprehensive video analysis results
-        - media_url: Original video URL
-        - brand_name: Brand name if provided
-        - ad_id: Ad ID if provided
-        - cache_status: Information about cache usage
-        - error: Error details if analysis failed
-    """
-    if not media_url or not media_url.strip():
-        return {
-            "success": False,
-            "message": "Media URL must be provided and cannot be empty.",
-            "cached": False,
-            "analysis": {},
-            "cache_info": {},
-            "error": "Missing or empty media URL"
-        }
-    
-    try:
-        # Check cache first
-        cached_data = media_cache.get_cached_media(media_url.strip(), media_type='video')
-        
-        if cached_data and cached_data.get('analysis_results'):
-            # Return cached analysis results
-            return {
-                "success": True,
-                "message": f"Retrieved cached video analysis for {media_url}",
-                "cached": True,
-                "analysis": cached_data['analysis_results'],
-                "cache_info": {
-                    "cached_at": cached_data.get('downloaded_at'),
-                    "analysis_cached_at": cached_data.get('analysis_cached_at'),
-                    "file_size": cached_data.get('file_size'),
-                    "brand_name": cached_data.get('brand_name'),
-                    "ad_id": cached_data.get('ad_id'),
-                    "duration_seconds": cached_data.get('duration_seconds')
-                },
-                "ad_transparency_url": "https://adstransparency.google.com/",
-                "source_citation": f"[Google Ads Transparency Center - {brand_name if brand_name else 'Ad'} #{ad_id if ad_id else 'Unknown'}]({media_url})",
-                "error": None
-            }
-        
-        # Download video if not cached or no analysis available
-        video_path = None
-        file_size = None
-        duration_seconds = None
-        
-        if cached_data:
-            # Video is cached but no analysis results yet
-            video_path = cached_data['file_path']
-            file_size = cached_data['file_size']
-            duration_seconds = cached_data.get('duration_seconds')
-        else:
-            # Download the video
-            response = requests.get(media_url.strip(), timeout=60)  # Longer timeout for videos
-            response.raise_for_status()
-            
-            # Check if it's a video
-            content_type = response.headers.get('content-type', '').lower()
-            if not any(vid_type in content_type for vid_type in ['video/', 'mp4', 'mov', 'webm', 'avi']):
-                return {
-                    "success": False,
-                    "message": f"URL does not point to a valid video. Content type: {content_type}",
-                    "cached": False,
-                    "analysis": {},
-                    "cache_info": {},
-                    "error": f"Invalid content type: {content_type}"
-                }
-            
-            # Cache the downloaded video
-            file_path = media_cache.cache_media(
-                url=media_url.strip(),
-                media_data=response.content,
-                content_type=content_type,
-                media_type='video',
-                brand_name=brand_name,
-                ad_id=ad_id
-            )
-            
-            video_path = file_path
-            file_size = len(response.content)
-        
-        # Configure Gemini API
-        try:
-            model = configure_gemini()
-        except Exception as e:
-            return {
-                "success": False,
-                "message": f"Failed to configure Gemini API: {str(e)}. Ensure --gemini-api-key is provided or GEMINI_API_KEY environment variable is set.",
-                "cached": bool(cached_data),
-                "analysis": {},
-                "cache_info": {},
-                "error": f"Gemini configuration error: {str(e)}"
-            }
-        
-        # Create structured video analysis prompt based on user requirements
-        analysis_prompt = """
+VIDEO_ANALYSIS_PROMPT = """
 Analyze this Google ad video and provide a comprehensive, structured breakdown following this exact format:
 
 **SCENE ANALYSIS:**
@@ -828,21 +628,164 @@ Scene [Number]: [Brief scene title]
 
 Provide detailed, factual observations that would help understand the video's marketing strategy and effectiveness. Focus on specific, actionable insights.
 """
+
+YOUTUBE_URL = re.compile(r"^https?://(www\.|m\.)?(youtube\.com|youtu\.be)/", re.IGNORECASE)
+
+
+@mcp.tool(
+  description="REQUIRED for analyzing video ads from Google. Pass the youtubeUrl from get_google_ad_details (Gemini reads YouTube directly) or a direct video file URL. Extracts visual storytelling, audio elements, pacing, scene transitions, brand messaging, and marketing strategy insights. Uses intelligent caching for efficiency and includes comprehensive video analysis.",
+  annotations={
+    "title": "Analyze Ad Video Content",
+    "readOnlyHint": True,
+    "openWorldHint": True
+  }
+)
+def analyze_ad_video(media_url: str, brand_name: Optional[str] = None, ad_id: Optional[str] = None) -> Dict[str, Any]:
+    """Download Google ad videos and analyze them using Gemini's video understanding capabilities.
+    
+    This tool downloads videos from Google Ads Transparency Center URLs and provides comprehensive analysis
+    using Google's Gemini AI model. Videos are cached locally to avoid re-downloading, and 
+    analysis results are cached to improve performance and reduce API costs.
+    
+    Args:
+        media_url: A YouTube URL (youtubeUrl from get_google_ad_details) or a direct video file URL.
+        brand_name: Optional brand name for cache organization.
+        ad_id: Optional ad ID for tracking purposes.
+    
+    Returns:
+        A dictionary containing:
+        - success: Boolean indicating if analysis was successful
+        - message: Status message
+        - cached: Boolean indicating if video was retrieved from cache
+        - analysis: Comprehensive video analysis results
+        - media_url: Original video URL
+        - brand_name: Brand name if provided
+        - ad_id: Ad ID if provided
+        - cache_status: Information about cache usage
+        - error: Error details if analysis failed
+    """
+    if not media_url or not media_url.strip():
+        return {
+            "success": False,
+            "message": "Media URL must be provided and cannot be empty.",
+            "cached": False,
+            "analysis": {},
+            "cache_info": {},
+            "error": "Missing or empty media URL"
+        }
+    
+    try:
+        # Check cache first
+        cached_data = media_cache.get_cached_media(media_url.strip(), media_type='video')
+        
+        if cached_data and cached_data.get('analysis_results'):
+            # Return cached analysis results
+            return {
+                "success": True,
+                "message": f"Retrieved cached video analysis for {media_url}",
+                "cached": True,
+                "analysis": cached_data['analysis_results'],
+                "cache_info": {
+                    "cached_at": cached_data.get('downloaded_at'),
+                    "analysis_cached_at": cached_data.get('analysis_cached_at'),
+                    "file_size": cached_data.get('file_size'),
+                    "brand_name": cached_data.get('brand_name'),
+                    "ad_id": cached_data.get('ad_id'),
+                    "duration_seconds": cached_data.get('duration_seconds')
+                },
+                "ad_transparency_url": "https://adstransparency.google.com/",
+                "source_citation": f"[Google Ads Transparency Center - {brand_name if brand_name else 'Ad'} #{ad_id if ad_id else 'Unknown'}]({media_url})",
+                "error": None
+            }
+        
+        # Google video ads live on YouTube: Gemini reads the URL directly, nothing to download.
+        if YOUTUBE_URL.match(media_url.strip()):
+            try:
+                model = configure_gemini()
+            except Exception as e:
+                return {"success": False, "message": f"Failed to configure Gemini API: {str(e)}. Set GEMINI_API_KEY.", "cached": False, "analysis": {}, "cache_info": {}, "error": f"Gemini configuration error: {str(e)}"}
+            analysis_text = analyze_video_with_gemini(model, media_url.strip(), VIDEO_ANALYSIS_PROMPT)
+            return {
+                "success": True,
+                "message": "Video analysis completed successfully (YouTube video read directly by Gemini)",
+                "cached": False,
+                "analysis": {"raw_analysis": analysis_text, "model_used": GEMINI_MODEL, "source": "youtube"},
+                "media_url": media_url,
+                "brand_name": brand_name,
+                "ad_id": ad_id,
+                "ad_transparency_url": "https://adstransparency.google.com/",
+                "source_citation": f"[Google Ads Transparency Center - {brand_name if brand_name else 'Ad'} #{ad_id if ad_id else 'Unknown'}]({media_url})",
+                "error": None
+            }
+
+        # Download video if not cached or no analysis available
+        video_path = None
+        file_size = None
+        duration_seconds = None
+        
+        if cached_data:
+            # Video is cached but no analysis results yet
+            video_path = cached_data['file_path']
+            file_size = cached_data['file_size']
+            duration_seconds = cached_data.get('duration_seconds')
+        else:
+            # Download the video
+            response = requests.get(media_url.strip(), timeout=60)  # Longer timeout for videos
+            response.raise_for_status()
+            
+            # Check if it's a video
+            content_type = response.headers.get('content-type', '').lower()
+            if not any(vid_type in content_type for vid_type in ['video/', 'mp4', 'mov', 'webm', 'avi']):
+                return {
+                    "success": False,
+                    "message": f"URL does not point to a valid video. Content type: {content_type}",
+                    "cached": False,
+                    "analysis": {},
+                    "cache_info": {},
+                    "error": f"Invalid content type: {content_type}"
+                }
+            
+            # Cache the downloaded video
+            file_path = media_cache.cache_media(
+                url=media_url.strip(),
+                media_data=response.content,
+                content_type=content_type,
+                media_type='video',
+                brand_name=brand_name,
+                ad_id=ad_id
+            )
+            
+            video_path = file_path
+            file_size = len(response.content)
+        
+        # Configure Gemini API
+        try:
+            model = configure_gemini()
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Failed to configure Gemini API: {str(e)}. Ensure --gemini-api-key is provided or GEMINI_API_KEY environment variable is set.",
+                "cached": bool(cached_data),
+                "analysis": {},
+                "cache_info": {},
+                "error": f"Gemini configuration error: {str(e)}"
+            }
+        
         
         # Upload video to Gemini and analyze
         gemini_file = None
         try:
             # Upload video to Gemini File API
-            gemini_file = upload_video_to_gemini(video_path)
+            gemini_file = upload_video_to_gemini(model, video_path)
             
             # Analyze video with Gemini
-            analysis_text = analyze_video_with_gemini(model, gemini_file, analysis_prompt)
+            analysis_text = analyze_video_with_gemini(model, gemini_file, VIDEO_ANALYSIS_PROMPT)
             
             # Structure the analysis results
             analysis_results = {
                 "raw_analysis": analysis_text,
                 "analysis_timestamp": media_cache._generate_url_hash(str(hash(analysis_text))),
-                "model_used": "gemini-2.0-flash-exp",
+                "model_used": GEMINI_MODEL,
                 "video_metadata": {
                     "file_size_mb": round(file_size / (1024 * 1024), 2) if file_size else None,
                     "duration_seconds": duration_seconds,
@@ -855,7 +798,7 @@ Provide detailed, factual observations that would help understand the video's ma
             
             # Cleanup Gemini file to save storage
             if gemini_file:
-                cleanup_gemini_file(gemini_file.name)
+                cleanup_gemini_file(model, gemini_file.name)
             
             return {
                 "success": True,
@@ -875,7 +818,7 @@ Provide detailed, factual observations that would help understand the video's ma
             # Cleanup Gemini file in case of error
             if gemini_file:
                 try:
-                    cleanup_gemini_file(gemini_file.name)
+                    cleanup_gemini_file(model, gemini_file.name)
                 except:
                     pass
             raise e
@@ -898,6 +841,33 @@ Provide detailed, factual observations that would help understand the video's ma
             "cache_info": {},
             "error": str(e)
         }
+
+
+@mcp.tool(
+  description="Load a playbook: the step-by-step method for an ad research job (which tool calls, what to look for, output format). Call it BEFORE starting when the request matches a job, then follow it. Jobs:\n" + "\n".join(f"- {job}: {trigger}" for job, trigger in TRIGGERS.items()),
+  annotations={
+    "title": "Get Analysis Playbook",
+    "readOnlyHint": True,
+    "openWorldHint": False
+  }
+)
+def get_playbook(job: str) -> str:
+    """Return the playbook text for a job: competitor_teardown, who_is_advertising, competitor_watch."""
+    key = job.strip().lower().replace(" ", "_").replace("-", "_")
+    if key not in PLAYBOOKS:
+        return f"Unknown job '{job}'. Valid jobs: {', '.join(PLAYBOOKS)}."
+    return PLAYBOOKS[key]
+
+
+def _playbook_prompt(job: str):
+    def prompt(brief: str = "") -> str:
+        return f"Run this playbook.{f' My brief: {brief}' if brief else ''}\n\n{PLAYBOOKS[job]}"
+    return prompt
+
+
+# The same playbooks in the host's prompt menu (Claude Desktop, Claude Code, Cursor).
+for _job, _trigger in TRIGGERS.items():
+    mcp.prompt(name=_job, title=_job.replace("_", " ").capitalize(), description=f"Playbook for {_trigger}.")(_playbook_prompt(_job))
 
 
 if __name__ == "__main__":

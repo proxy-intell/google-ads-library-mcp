@@ -12,6 +12,8 @@ This is a Model Context Protocol (MCP) server for the Google Ads Transparency Ce
 
 With this you can search Google's public ads transparency center for any company or brand, see what they're currently running and analyze their advertising. You can analyze ad images/text, analyze video ads with comprehensive insights, compare companies' strategies, and get insights into what's working in their campaigns.
 
+**New in v1.1:** look up any brand's advertiser ID by name (`get_google_platform_id`), "what changed since last fetch" on every `get_google_ads` pull, three built-in research playbooks, and video analysis on the current Gemini SDK and models. See the [release notes](https://github.com/proxy-intell/google-ads-library-mcp/releases).
+
 Here's an example of what you can do when it's connected to Claude.
 
 
@@ -40,6 +42,9 @@ Prefer to run it yourself? The full self-host setup is documented below.
 | Ad libraries | Meta, Google, LinkedIn and TikTok (EU) in one server | Google only |
 | Cost | Free for 20 credits a day; paid plans for more | ScrapeCreators credits (about $1.88 per 1,000 calls) plus Gemini usage for video |
 | API keys | None, sign in with OAuth | ScrapeCreators, plus Gemini for video |
+| Brand name to advertiser ID lookup | ✅ | ✅ |
+| What changed since last fetch | ✅ | ✅ |
+| Research playbooks (teardowns, prospect lists, weekly tracking) | ✅ | ✅ |
 | Competitor discovery and competitive brief | ✅ | ❌ |
 | Inline ad carousel | ✅ | ❌ |
 | ChatGPT and claude.ai | ✅ (ChatGPT app and Claude connector) | ❌ (they need a public OAuth server) |
@@ -67,6 +72,20 @@ Analyze the video ads from 'Nike' and extract their visual storytelling strategy
 
 ```plaintext
 Do a deep comparison to the messaging between 'AnthropicAI', 'Perplexity AI' and 'OpenAI'. Give it a nice forwardable summary.
+```
+
+### Competitor Tracking
+
+```plaintext
+Pull HubSpot's and Salesforce's Google ads. I'll ask again next week: tell me what's new then.
+```
+
+### Playbooks
+
+Your MCP client's prompt menu now lists three playbooks: `competitor_teardown`, `who_is_advertising` and `competitor_watch`. Or just ask, and the model loads the right one with `get_playbook`:
+
+```plaintext
+Which of these dentists in Austin run Google ads? smiledental.com, austinfamilydentist.com, brightsmiles.com
 ```
 
 ---
@@ -228,7 +247,7 @@ This server connects to Google's Ads Transparency Center:
 
 Tips:
 
-- Use company domains (e.g., "nike.com") instead of brand names for searching
+- Only know the brand name? `get_google_platform_id` finds the advertiser ID and domain first
 - Text ads are now supported in addition to image and video ads
 - Each ad may have multiple variations with different headlines and descriptions
 
@@ -238,10 +257,12 @@ This MCP server provides tools for interacting with Google Ads Transparency Cent
 
 | Tool Name              | Description                                        |
 | ---------------------- | -------------------------------------------------- |
-| `get_google_ads`          | Retrieves currently running ads for a company from Google Ads Transparency Center (by domain or advertiser ID) |
+| `get_google_platform_id`  | **NEW** - Finds a brand's advertiser IDs and domains by name or domain (one or many brands) |
+| `get_google_ads`          | Retrieves currently running ads for a company (by domain or advertiser ID), plus what changed since the last fetch |
 | `get_google_ad_details`   | Gets detailed information about a specific Google ad, including all variations and regional stats |
-| `analyze_ad_image`        | Downloads and analyzes ad images for visual elements, text, colors, and composition |
-| `analyze_ad_video`        | Downloads and analyzes ad videos using Gemini AI for comprehensive video insights |
+| `analyze_ad_image`        | Returns the ad image to the model for visual analysis |
+| `analyze_ad_video`        | Analyzes a video ad with Gemini, straight from its YouTube URL (set `GEMINI_MODEL` to change the model) |
+| `get_playbook`            | **NEW** - Step-by-step method for a research job (also served as prompts) |
 | `get_cache_stats`         | Gets statistics about cached media (images and videos) and storage usage      |
 | `search_cached_media`     | Searches previously analyzed media by brand, colors, people, or media type    |
 | `cleanup_media_cache`     | Cleans up old cached media files to free disk space                           |
@@ -262,6 +283,7 @@ This MCP server provides tools for interacting with Google Ads Transparency Cent
 **Video Analysis Not Working:**
 - Confirm you have a valid Google Gemini API key in your `.env` file
 - Video analysis requires the `GEMINI_API_KEY` environment variable
+- If Gemini says the model is not found, set `GEMINI_MODEL` in `.env` to a current model from [Google's model list](https://ai.google.dev/gemini-api/docs/models)
 
 **MCP Server Connection Issues:**
 - Verify the path in your MCP configuration points to the correct location
@@ -271,7 +293,7 @@ This MCP server provides tools for interacting with Google Ads Transparency Cent
 For additional Claude Desktop integration troubleshooting, see the [MCP documentation](https://modelcontextprotocol.io/quickstart/server#claude-for-desktop-integration-issues). The documentation includes helpful tips for checking logs and resolving common issues.
 
 **Google Ads Specific Notes:**
-- Use company domains (e.g., "nike.com") instead of brand names for searching
+- Only know the brand name? `get_google_platform_id` finds the advertiser ID and domain first
 - Text ads are now supported in addition to image and video ads
 - Each ad may have multiple variations with different headlines and descriptions
 
