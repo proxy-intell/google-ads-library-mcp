@@ -1,6 +1,6 @@
 {
   "name": "@proxy-intell/google-ads-library-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "The most visual MCP server for the Google Ads Transparency Center. Ask about any brand and your AI shows actual ad copy rendered in chat.",
   "main": "index.js",
   "bin": {

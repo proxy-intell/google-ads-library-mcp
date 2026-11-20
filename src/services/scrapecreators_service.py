@@ -1,8 +1,10 @@
 import requests
 import sys
 import os
+import re
+import time
 import logging
-from datetime import datetime
+import unicodedata
 from typing import Dict, Any, List, Optional
 
 # Set up logger
@@ -10,6 +12,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 # Google Ads API endpoints
+ADVERTISER_SEARCH_API_URL = "https://api.scrapecreators.com/v1/google/adLibrary/advertisers/search"
 COMPANY_ADS_API_URL = "https://api.scrapecreators.com/v1/google/company/ads"
 AD_DETAILS_API_URL = "https://api.scrapecreators.com/v1/google/ad"
 
@@ -59,6 +62,63 @@ def get_scrapecreators_api_key() -> str:
     return SCRAPECREATORS_API_KEY
 
 
+def _get(url: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    """GET a ScrapeCreators endpoint. Retries once on a 5xx or dropped connection, then raises."""
+    for attempt in range(2):
+        try:
+            response = requests.get(url, headers={"x-api-key": get_scrapecreators_api_key()}, params=params, timeout=30)
+        except requests.ConnectionError:
+            if attempt:
+                raise
+            time.sleep(2)
+            continue
+        if response.status_code >= 500 and not attempt:
+            logger.warning(f"ScrapeCreators returned {response.status_code}, retrying once")
+            time.sleep(2)
+            continue
+        if response.status_code == 402:
+            raise Exception(f"ScrapeCreators API credits exhausted. Top up at https://scrapecreators.com/dashboard, or {PROXY_HINT}")
+        response.raise_for_status()
+        return response.json()
+
+
+# Accent-stripped, lowercase. Models append these to brand names ("Purina Mexico").
+_LOCATION_SUFFIXES = {
+    "mexico", "mx", "cdmx", "venezuela", "colombia", "argentina", "chile", "peru", "brasil", "brazil",
+    "espana", "spain", "usa", "us", "uk", "canada", "australia", "india", "germany", "deutschland",
+    "france", "italia", "italy", "latam", "europe", "global",
+}
+
+
+def query_fallbacks(query: str) -> List[str]:
+    """Queries to try in order. Upstream search is literal: "Purina Mexico" or "HappyVet happyvet.mx"
+    return nothing while the bare name or bare domain match."""
+    words = query.split()
+    domains = [w for w in words if re.fullmatch(r"(https?://)?(www\.)?[\w-]+(\.[a-z]{2,})+/?", w, re.IGNORECASE)]
+    rest = [w for w in words if w not in domains]
+    candidates = [query]
+    if domains and rest:
+        candidates.append(re.sub(r"^(https?://)?(www\.)?|/$", "", domains[0], flags=re.IGNORECASE))
+        candidates.append(" ".join(rest))
+    # Only strip trailing locations: dropping arbitrary words turns a real miss into unrelated matches.
+    while len(rest) >= 2 and unicodedata.normalize("NFKD", rest[-1]).encode("ascii", "ignore").decode().lower().strip(",.()") in _LOCATION_SUFFIXES:
+        rest = rest[:-1]
+        candidates.append(" ".join(rest))
+    return list(dict.fromkeys(candidates))
+
+
+def search_advertisers(query: str) -> Dict[str, Any]:
+    """Find Google advertisers and domains for a brand. Tries query_fallbacks until one matches.
+
+    Returns {"advertisers": [{name, advertiser_id, region}], "websites": [{domain}], "searched": query used}.
+    """
+    for candidate in query_fallbacks(query):
+        data = _get(ADVERTISER_SEARCH_API_URL, {"query": candidate})
+        if data.get("advertisers") or data.get("websites"):
+            break
+    return {"advertisers": data.get("advertisers") or [], "websites": data.get("websites") or [], "searched": candidate}
+
+
 def get_ad_details(ad_url: str) -> Dict[str, Any]:
     """
     Get detailed information for a specific Google ad.
@@ -73,18 +133,7 @@ def get_ad_details(ad_url: str) -> Dict[str, Any]:
         requests.RequestException: If the API request fails.
         Exception: For other errors.
     """
-    api_key = get_scrapecreators_api_key()
-    
-    response = requests.get(
-        AD_DETAILS_API_URL,
-        headers={"x-api-key": api_key},
-        params={
-            "url": ad_url,
-        },
-        timeout=30
-    )
-    response.raise_for_status()
-    content = response.json()
+    content = _get(AD_DETAILS_API_URL, {"url": ad_url})
     
     if not content.get('success'):
         raise Exception(f"API returned unsuccessful response: {content}")
@@ -125,50 +174,22 @@ def get_ads(
     if topic == "political" and not region:
         raise ValueError("Region is required when searching for political ads")
     
-    api_key = get_scrapecreators_api_key()
-    headers = {"x-api-key": api_key}
-    
-    params = {}
-    if domain:
-        params["domain"] = domain
-    if advertiser_id:
-        params["advertiser_id"] = advertiser_id
-    if topic:
-        params["topic"] = topic
-    if region:
-        params["region"] = region
-    if cursor:
-        params["cursor"] = cursor
-    
-    try:
-        response = requests.get(
-            COMPANY_ADS_API_URL,
-            headers=headers,
-            params=params,
-            timeout=30
-        )
-        response.raise_for_status()
-        
-        content = response.json()
-        
-        if not content.get('success'):
-            raise Exception(f"API returned unsuccessful response: {content}")
-        
-        # Process ads to limit results
-        ads = content.get('ads', [])
-        if len(ads) > limit:
-            ads = ads[:limit]
-            content['ads'] = ads
-        
-        logger.info(f"Retrieved {len(ads)} Google ads for {domain or advertiser_id}")
-        return content
-        
-    except requests.RequestException as e:
-        logger.error(f"Network error while fetching Google ads: {str(e)}")
-        raise
-    except Exception as e:
-        logger.error(f"Error processing Google ads response: {str(e)}")
-        raise
+    params = {k: v for k, v in {
+        "domain": domain,
+        "advertiser_id": advertiser_id,
+        "topic": topic,
+        "region": region,
+        "cursor": cursor,
+    }.items() if v}
+
+    content = _get(COMPANY_ADS_API_URL, params)
+    if not content.get('success'):
+        raise Exception(f"API returned unsuccessful response: {content}")
+
+    ads = content.get('ads') or []
+    content['ads'] = ads[:limit]
+    logger.info(f"Retrieved {len(content['ads'])} Google ads for {domain or advertiser_id}")
+    return content
 
 
 def parse_google_ads(ads: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

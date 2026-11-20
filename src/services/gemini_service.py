@@ -1,14 +1,21 @@
 import os
 import sys
+import time
 import logging
-import google.generativeai as genai
-from google.generativeai.types import File
+from google import genai
+from google.genai import types
 from typing import Optional
 
 # Set up logger
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = None
+
+# Model used for video analysis. Override with GEMINI_MODEL in .env (e.g. gemini-3.1-pro for depth).
+GEMINI_MODEL = os.getenv("GEMINI_MODEL") or "gemini-3.1-flash-lite"
+
+# Type alias for uploaded files (new google-genai SDK)
+File = types.File
 
 def get_gemini_api_key() -> str:
     """
@@ -42,96 +49,101 @@ def get_gemini_api_key() -> str:
     return GEMINI_API_KEY
 
 
-def configure_gemini() -> genai.GenerativeModel:
+def configure_gemini() -> genai.Client:
     """
-    Configure Gemini API with the API key and return a model instance.
-    
+    Configure the Gemini client with the API key.
+
+    Uses the modern google-genai SDK, which supports both the legacy ``AIza``
+    keys and the newer ``AQ.`` prefixed keys now issued by Google AI Studio and
+    Cloud Console.
+
     Returns:
-        genai.GenerativeModel: Configured Gemini model instance for video analysis
+        genai.Client: Configured Gemini client for video analysis
     """
     api_key = get_gemini_api_key()
-    genai.configure(api_key=api_key)
-    
-    # Use Gemini 2.0 Flash for video analysis (more cost-effective than Pro)
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
-    
+    client = genai.Client(api_key=api_key)
+
     logger.info("Gemini API configured successfully")
-    return model
+    return client
 
 
-def upload_video_to_gemini(video_path: str) -> File:
+def upload_video_to_gemini(client: genai.Client, video_path: str) -> File:
     """
     Upload a video file to Gemini File API for analysis.
-    
+
     Args:
+        client: Configured Gemini client
         video_path: Path to the video file to upload
-        
+
     Returns:
-        genai.File: The uploaded file object for use in analysis
-        
+        File: The uploaded file object for use in analysis
+
     Raises:
         Exception: If upload fails
     """
     try:
         # Upload video file
-        video_file = genai.upload_file(path=video_path)
-        
+        video_file = client.files.upload(file=video_path)
+
         # Wait for processing to complete
-        import time
         while video_file.state.name == "PROCESSING":
             time.sleep(2)
-            video_file = genai.get_file(video_file.name)
-        
+            video_file = client.files.get(name=video_file.name)
+
         if video_file.state.name == "FAILED":
             raise Exception(f"Video processing failed: {video_file.state}")
-            
+
         logger.info(f"Video uploaded successfully: {video_file.name}")
         return video_file
-        
+
     except Exception as e:
         logger.error(f"Failed to upload video to Gemini: {str(e)}")
         raise
 
 
-def analyze_video_with_gemini(model: genai.GenerativeModel, video_file: File, prompt: str) -> str:
+def analyze_video_with_gemini(client: genai.Client, video_file: File, prompt: str) -> str:
     """
     Analyze a video using Gemini with a custom prompt.
-    
+
     Args:
-        model: Configured Gemini model instance
+        client: Configured Gemini client
         video_file: Uploaded video file from Gemini File API
         prompt: Analysis prompt for the video
-        
+
     Returns:
         str: Analysis results from Gemini
-        
+
     Raises:
         Exception: If analysis fails
     """
     try:
         # Generate analysis
-        response = model.generate_content([video_file, prompt])
-        
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=[video_file, prompt],
+        )
+
         if not response.text:
             raise Exception("Gemini returned empty response")
-            
+
         logger.info("Video analysis completed successfully")
         return response.text
-        
+
     except Exception as e:
         logger.error(f"Video analysis failed: {str(e)}")
         raise
 
 
-def cleanup_gemini_file(file_name: str):
+def cleanup_gemini_file(client: genai.Client, file_name: str):
     """
     Delete a file from Gemini File API to free up storage.
-    
+
     Args:
+        client: Configured Gemini client
         file_name: Name of the file to delete
     """
     try:
-        genai.delete_file(file_name)
+        client.files.delete(name=file_name)
         logger.info(f"Cleaned up Gemini file: {file_name}")
     except Exception as e:
         logger.warning(f"Failed to cleanup Gemini file {file_name}: {str(e)}")
