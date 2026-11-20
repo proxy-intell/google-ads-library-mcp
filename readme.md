@@ -12,7 +12,7 @@ This is a Model Context Protocol (MCP) server for the Google Ads Transparency Ce
 
 With this you can search Google's public ads transparency center for any company or brand, see what they're currently running and analyze their advertising. You can analyze ad images/text, analyze video ads with comprehensive insights, compare companies' strategies, and get insights into what's working in their campaigns.
 
-**New in v1.1:** look up any brand's advertiser ID by name (`get_google_platform_id`), "what changed since last fetch" on every `get_google_ads` pull, three built-in research playbooks, and video analysis on the current Gemini SDK and models. See the [release notes](https://github.com/proxy-intell/google-ads-library-mcp/releases).
+**New in v1.1:** look up any brand's advertiser ID by name (`get_google_platform_id`), "what changed since last fetch" on every `get_google_ads` pull, three built-in research playbooks, and video analysis on the current Gemini SDK and models. See the [changelog](CHANGELOG.md).
 
 Here's an example of what you can do when it's connected to Claude.
 
