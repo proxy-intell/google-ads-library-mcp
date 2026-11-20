@@ -12,6 +12,7 @@ from src.playbooks import PLAYBOOKS, TRIGGERS
 from mcp.server.fastmcp import Image
 from typing import Dict, Any, List, Optional, Union
 import json
+import re
 import requests
 import os
 
@@ -569,127 +570,7 @@ def search_cached_images(brand_name: Optional[str] = None, has_people: Optional[
 cleanup_image_cache = cleanup_media_cache
 
 
-@mcp.tool(
-  description="REQUIRED for analyzing video ads from Google. Download and analyze ad videos using Gemini's advanced video understanding capabilities. Extracts visual storytelling, audio elements, pacing, scene transitions, brand messaging, and marketing strategy insights. Uses intelligent caching for efficiency and includes comprehensive video analysis.",
-  annotations={
-    "title": "Analyze Ad Video Content",
-    "readOnlyHint": True,
-    "openWorldHint": True
-  }
-)
-def analyze_ad_video(media_url: str, brand_name: Optional[str] = None, ad_id: Optional[str] = None) -> Dict[str, Any]:
-    """Download Google ad videos and analyze them using Gemini's video understanding capabilities.
-    
-    This tool downloads videos from Google Ads Transparency Center URLs and provides comprehensive analysis
-    using Google's Gemini AI model. Videos are cached locally to avoid re-downloading, and 
-    analysis results are cached to improve performance and reduce API costs.
-    
-    Args:
-        media_url: The direct URL to the Google ad video to analyze.
-        brand_name: Optional brand name for cache organization.
-        ad_id: Optional ad ID for tracking purposes.
-    
-    Returns:
-        A dictionary containing:
-        - success: Boolean indicating if analysis was successful
-        - message: Status message
-        - cached: Boolean indicating if video was retrieved from cache
-        - analysis: Comprehensive video analysis results
-        - media_url: Original video URL
-        - brand_name: Brand name if provided
-        - ad_id: Ad ID if provided
-        - cache_status: Information about cache usage
-        - error: Error details if analysis failed
-    """
-    if not media_url or not media_url.strip():
-        return {
-            "success": False,
-            "message": "Media URL must be provided and cannot be empty.",
-            "cached": False,
-            "analysis": {},
-            "cache_info": {},
-            "error": "Missing or empty media URL"
-        }
-    
-    try:
-        # Check cache first
-        cached_data = media_cache.get_cached_media(media_url.strip(), media_type='video')
-        
-        if cached_data and cached_data.get('analysis_results'):
-            # Return cached analysis results
-            return {
-                "success": True,
-                "message": f"Retrieved cached video analysis for {media_url}",
-                "cached": True,
-                "analysis": cached_data['analysis_results'],
-                "cache_info": {
-                    "cached_at": cached_data.get('downloaded_at'),
-                    "analysis_cached_at": cached_data.get('analysis_cached_at'),
-                    "file_size": cached_data.get('file_size'),
-                    "brand_name": cached_data.get('brand_name'),
-                    "ad_id": cached_data.get('ad_id'),
-                    "duration_seconds": cached_data.get('duration_seconds')
-                },
-                "ad_transparency_url": "https://adstransparency.google.com/",
-                "source_citation": f"[Google Ads Transparency Center - {brand_name if brand_name else 'Ad'} #{ad_id if ad_id else 'Unknown'}]({media_url})",
-                "error": None
-            }
-        
-        # Download video if not cached or no analysis available
-        video_path = None
-        file_size = None
-        duration_seconds = None
-        
-        if cached_data:
-            # Video is cached but no analysis results yet
-            video_path = cached_data['file_path']
-            file_size = cached_data['file_size']
-            duration_seconds = cached_data.get('duration_seconds')
-        else:
-            # Download the video
-            response = requests.get(media_url.strip(), timeout=60)  # Longer timeout for videos
-            response.raise_for_status()
-            
-            # Check if it's a video
-            content_type = response.headers.get('content-type', '').lower()
-            if not any(vid_type in content_type for vid_type in ['video/', 'mp4', 'mov', 'webm', 'avi']):
-                return {
-                    "success": False,
-                    "message": f"URL does not point to a valid video. Content type: {content_type}",
-                    "cached": False,
-                    "analysis": {},
-                    "cache_info": {},
-                    "error": f"Invalid content type: {content_type}"
-                }
-            
-            # Cache the downloaded video
-            file_path = media_cache.cache_media(
-                url=media_url.strip(),
-                media_data=response.content,
-                content_type=content_type,
-                media_type='video',
-                brand_name=brand_name,
-                ad_id=ad_id
-            )
-            
-            video_path = file_path
-            file_size = len(response.content)
-        
-        # Configure Gemini API
-        try:
-            model = configure_gemini()
-        except Exception as e:
-            return {
-                "success": False,
-                "message": f"Failed to configure Gemini API: {str(e)}. Ensure --gemini-api-key is provided or GEMINI_API_KEY environment variable is set.",
-                "cached": bool(cached_data),
-                "analysis": {},
-                "cache_info": {},
-                "error": f"Gemini configuration error: {str(e)}"
-            }
-        
-        # Create structured video analysis prompt based on user requirements
-        analysis_prompt = """
+VIDEO_ANALYSIS_PROMPT = """
 Analyze this Google ad video and provide a comprehensive, structured breakdown following this exact format:
 
 **SCENE ANALYSIS:**
@@ -747,6 +628,149 @@ Scene [Number]: [Brief scene title]
 
 Provide detailed, factual observations that would help understand the video's marketing strategy and effectiveness. Focus on specific, actionable insights.
 """
+
+YOUTUBE_URL = re.compile(r"^https?://(www\.|m\.)?(youtube\.com|youtu\.be)/", re.IGNORECASE)
+
+
+@mcp.tool(
+  description="REQUIRED for analyzing video ads from Google. Pass the youtubeUrl from get_google_ad_details (Gemini reads YouTube directly) or a direct video file URL. Extracts visual storytelling, audio elements, pacing, scene transitions, brand messaging, and marketing strategy insights. Uses intelligent caching for efficiency and includes comprehensive video analysis.",
+  annotations={
+    "title": "Analyze Ad Video Content",
+    "readOnlyHint": True,
+    "openWorldHint": True
+  }
+)
+def analyze_ad_video(media_url: str, brand_name: Optional[str] = None, ad_id: Optional[str] = None) -> Dict[str, Any]:
+    """Download Google ad videos and analyze them using Gemini's video understanding capabilities.
+    
+    This tool downloads videos from Google Ads Transparency Center URLs and provides comprehensive analysis
+    using Google's Gemini AI model. Videos are cached locally to avoid re-downloading, and 
+    analysis results are cached to improve performance and reduce API costs.
+    
+    Args:
+        media_url: A YouTube URL (youtubeUrl from get_google_ad_details) or a direct video file URL.
+        brand_name: Optional brand name for cache organization.
+        ad_id: Optional ad ID for tracking purposes.
+    
+    Returns:
+        A dictionary containing:
+        - success: Boolean indicating if analysis was successful
+        - message: Status message
+        - cached: Boolean indicating if video was retrieved from cache
+        - analysis: Comprehensive video analysis results
+        - media_url: Original video URL
+        - brand_name: Brand name if provided
+        - ad_id: Ad ID if provided
+        - cache_status: Information about cache usage
+        - error: Error details if analysis failed
+    """
+    if not media_url or not media_url.strip():
+        return {
+            "success": False,
+            "message": "Media URL must be provided and cannot be empty.",
+            "cached": False,
+            "analysis": {},
+            "cache_info": {},
+            "error": "Missing or empty media URL"
+        }
+    
+    try:
+        # Check cache first
+        cached_data = media_cache.get_cached_media(media_url.strip(), media_type='video')
+        
+        if cached_data and cached_data.get('analysis_results'):
+            # Return cached analysis results
+            return {
+                "success": True,
+                "message": f"Retrieved cached video analysis for {media_url}",
+                "cached": True,
+                "analysis": cached_data['analysis_results'],
+                "cache_info": {
+                    "cached_at": cached_data.get('downloaded_at'),
+                    "analysis_cached_at": cached_data.get('analysis_cached_at'),
+                    "file_size": cached_data.get('file_size'),
+                    "brand_name": cached_data.get('brand_name'),
+                    "ad_id": cached_data.get('ad_id'),
+                    "duration_seconds": cached_data.get('duration_seconds')
+                },
+                "ad_transparency_url": "https://adstransparency.google.com/",
+                "source_citation": f"[Google Ads Transparency Center - {brand_name if brand_name else 'Ad'} #{ad_id if ad_id else 'Unknown'}]({media_url})",
+                "error": None
+            }
+        
+        # Google video ads live on YouTube: Gemini reads the URL directly, nothing to download.
+        if YOUTUBE_URL.match(media_url.strip()):
+            try:
+                model = configure_gemini()
+            except Exception as e:
+                return {"success": False, "message": f"Failed to configure Gemini API: {str(e)}. Set GEMINI_API_KEY.", "cached": False, "analysis": {}, "cache_info": {}, "error": f"Gemini configuration error: {str(e)}"}
+            analysis_text = analyze_video_with_gemini(model, media_url.strip(), VIDEO_ANALYSIS_PROMPT)
+            return {
+                "success": True,
+                "message": "Video analysis completed successfully (YouTube video read directly by Gemini)",
+                "cached": False,
+                "analysis": {"raw_analysis": analysis_text, "model_used": GEMINI_MODEL, "source": "youtube"},
+                "media_url": media_url,
+                "brand_name": brand_name,
+                "ad_id": ad_id,
+                "ad_transparency_url": "https://adstransparency.google.com/",
+                "source_citation": f"[Google Ads Transparency Center - {brand_name if brand_name else 'Ad'} #{ad_id if ad_id else 'Unknown'}]({media_url})",
+                "error": None
+            }
+
+        # Download video if not cached or no analysis available
+        video_path = None
+        file_size = None
+        duration_seconds = None
+        
+        if cached_data:
+            # Video is cached but no analysis results yet
+            video_path = cached_data['file_path']
+            file_size = cached_data['file_size']
+            duration_seconds = cached_data.get('duration_seconds')
+        else:
+            # Download the video
+            response = requests.get(media_url.strip(), timeout=60)  # Longer timeout for videos
+            response.raise_for_status()
+            
+            # Check if it's a video
+            content_type = response.headers.get('content-type', '').lower()
+            if not any(vid_type in content_type for vid_type in ['video/', 'mp4', 'mov', 'webm', 'avi']):
+                return {
+                    "success": False,
+                    "message": f"URL does not point to a valid video. Content type: {content_type}",
+                    "cached": False,
+                    "analysis": {},
+                    "cache_info": {},
+                    "error": f"Invalid content type: {content_type}"
+                }
+            
+            # Cache the downloaded video
+            file_path = media_cache.cache_media(
+                url=media_url.strip(),
+                media_data=response.content,
+                content_type=content_type,
+                media_type='video',
+                brand_name=brand_name,
+                ad_id=ad_id
+            )
+            
+            video_path = file_path
+            file_size = len(response.content)
+        
+        # Configure Gemini API
+        try:
+            model = configure_gemini()
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Failed to configure Gemini API: {str(e)}. Ensure --gemini-api-key is provided or GEMINI_API_KEY environment variable is set.",
+                "cached": bool(cached_data),
+                "analysis": {},
+                "cache_info": {},
+                "error": f"Gemini configuration error: {str(e)}"
+            }
+        
         
         # Upload video to Gemini and analyze
         gemini_file = None
@@ -755,7 +779,7 @@ Provide detailed, factual observations that would help understand the video's ma
             gemini_file = upload_video_to_gemini(model, video_path)
             
             # Analyze video with Gemini
-            analysis_text = analyze_video_with_gemini(model, gemini_file, analysis_prompt)
+            analysis_text = analyze_video_with_gemini(model, gemini_file, VIDEO_ANALYSIS_PROMPT)
             
             # Structure the analysis results
             analysis_results = {

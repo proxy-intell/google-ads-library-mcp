@@ -4,7 +4,7 @@ import time
 import logging
 from google import genai
 from google.genai import types
-from typing import Optional
+from typing import Optional, Union
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -101,13 +101,14 @@ def upload_video_to_gemini(client: genai.Client, video_path: str) -> File:
         raise
 
 
-def analyze_video_with_gemini(client: genai.Client, video_file: File, prompt: str) -> str:
+def analyze_video_with_gemini(client: genai.Client, video_file: Union[File, str], prompt: str) -> str:
     """
     Analyze a video using Gemini with a custom prompt.
 
     Args:
         client: Configured Gemini client
-        video_file: Uploaded video file from Gemini File API
+        video_file: Uploaded video file from Gemini File API, or a public YouTube URL
+            (Gemini reads YouTube videos directly, no download or upload)
         prompt: Analysis prompt for the video
 
     Returns:
@@ -120,7 +121,10 @@ def analyze_video_with_gemini(client: genai.Client, video_file: File, prompt: st
         # Generate analysis
         response = client.models.generate_content(
             model=GEMINI_MODEL,
-            contents=[video_file, prompt],
+            contents=[
+                types.Part(file_data=types.FileData(file_uri=video_file)) if isinstance(video_file, str) else video_file,
+                prompt,
+            ],
         )
 
         if not response.text:

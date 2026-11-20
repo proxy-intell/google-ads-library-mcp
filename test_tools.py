@@ -85,6 +85,18 @@ async def main():
         r = await c.call_tool("analyze_ad_image", {"media_url": "http://img"})
         assert [b.type for b in r.content] == ["text", "image"] and not r.isError
 
+        # A YouTube URL goes to Gemini as-is: no download, no upload.
+        sent = []
+        class FakeModels:
+            def generate_content(self, model, contents):
+                sent.append(contents[0])
+                return type("R", (), {"text": "scene 1"})()
+        mcp_server.configure_gemini = lambda: type("C", (), {"models": FakeModels()})()
+        before = len(calls)
+        r = json.loads((await c.call_tool("analyze_ad_video", {"media_url": "https://www.youtube.com/watch?v=abc"})).content[0].text)
+        assert r["success"] and r["analysis"]["raw_analysis"] == "scene 1", r
+        assert sent[0].file_data.file_uri == "https://www.youtube.com/watch?v=abc" and len(calls) == before
+
 
 asyncio.run(main())
 

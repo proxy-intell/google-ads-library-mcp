@@ -35,7 +35,7 @@ Method:
 2. Per brand: get_google_ads(domain="<domain>", region="<XX>", limit=30). If a domain returns nothing, retry with advertiser_id="<advertiser_id>".
 3. Run time per ad = firstShown to lastShown. Pick the 3-5 longest-running per brand and call get_google_ad_details(ad_url="<adUrl>") for headlines, descriptions, images and regions.
 4. Tag every detailed ad: angle (pain, aspiration, social proof, us-vs-them, mechanism, price, urgency, authority), offer (discount, trial, free shipping, guarantee, none), format (text, image, video).
-5. Image variations: analyze_ad_image(media_url="<imageUrl>"). Video variations carry a youtubeUrl: cite it; analyze_ad_video needs a direct video file, not a YouTube page.
+5. Image variations: analyze_ad_image(media_url="<imageUrl>"). Video variations carry a youtubeUrl: analyze_ad_video(media_url="<youtubeUrl>") and cite it.
 
 Look for: headlines a brand keeps running for months versus ones it tests and kills; one angle across several brands (proven but crowded); offers only in new ads; claims nobody makes; regions only one brand targets.
 

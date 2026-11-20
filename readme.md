@@ -261,7 +261,7 @@ This MCP server provides tools for interacting with Google Ads Transparency Cent
 | `get_google_ads`          | Retrieves currently running ads for a company (by domain or advertiser ID), plus what changed since the last fetch |
 | `get_google_ad_details`   | Gets detailed information about a specific Google ad, including all variations and regional stats |
 | `analyze_ad_image`        | Returns the ad image to the model for visual analysis |
-| `analyze_ad_video`        | Analyzes an ad video with Gemini (set `GEMINI_MODEL` to change the model) |
+| `analyze_ad_video`        | Analyzes a video ad with Gemini, straight from its YouTube URL (set `GEMINI_MODEL` to change the model) |
 | `get_playbook`            | **NEW** - Step-by-step method for a research job (also served as prompts) |
 | `get_cache_stats`         | Gets statistics about cached media (images and videos) and storage usage      |
 | `search_cached_media`     | Searches previously analyzed media by brand, colors, people, or media type    |
