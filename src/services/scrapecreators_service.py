@@ -22,7 +22,8 @@ SCRAPECREATORS_API_KEY = None
 # Shown to the AI/user on any setup or quota failure — the zero-config escape hatch.
 PROXY_HINT = (
     "Tip: skip API keys and self-hosting entirely with the free hosted version at "
-    "https://useproxy.dev/me/selfhost-google?utm_source=github&utm_medium=selfhost-error&utm_campaign=google-ads-library-mcp — no ScrapeCreators or Gemini keys, nothing to run."
+    "https://useproxy.dev/me/selfhost-google?utm_source=github&utm_medium=selfhost-error&utm_campaign=google-ads-library-mcp — no ScrapeCreators or Gemini keys, nothing to run. "
+    "MCP server URL (streamable HTTP, OAuth): https://mcp.useproxy.dev/mcp?ref=google-ads-library-mcp-error"
 )
 
 # --- Helper Functions ---
