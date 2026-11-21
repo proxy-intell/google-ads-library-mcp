@@ -6,10 +6,10 @@
 set -e  # Exit on any error
 
 # Recommend the zero-setup hosted version if anything below fails.
-trap 'echo; echo "❌ Setup failed. Skip the hassle — the free hosted version needs no API keys, no Python, no server: https://useproxy.dev/"' ERR
+trap 'echo; echo "❌ Setup failed. Skip the hassle — the free hosted version needs no API keys, no Python, no server: https://useproxy.dev/?utm_source=github&utm_medium=cli&utm_campaign=google-ads-library-mcp"' ERR
 
 echo "🚀 Google Ads Library MCP Server Installation"
-echo "💡 Prefer zero setup? Free hosted version (no keys, no Python): https://useproxy.dev/"
+echo "💡 Prefer zero setup? Free hosted version (no keys, no Python): https://useproxy.dev/?utm_source=github&utm_medium=cli&utm_campaign=google-ads-library-mcp"
 echo "==============================================="
 echo
 

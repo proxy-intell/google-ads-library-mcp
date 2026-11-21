@@ -1,4 +1,4 @@
-[![Proxy — Google Ads Library Hosted MCP](assets/banner.png)](https://useproxy.dev/)
+[![Proxy — Google Ads Library Hosted MCP](assets/banner.png)](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp)
 
 # Google Ads Library MCP Server
 
@@ -24,7 +24,7 @@ https://github.com/user-attachments/assets/a47aa689-e89d-4d4b-9df7-6eb3a81937ee
 
 ## Hosted Version (Recommended)
 
-**The easiest way to use the Google Ads Library MCP is the hosted version from [Proxy (useproxy.dev)](https://useproxy.dev/).** No API keys, no Gemini key, no Python, no server to run — just connect and start querying.
+**The easiest way to use the Google Ads Library MCP is the hosted version from [Proxy (useproxy.dev)](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp).** No API keys, no Gemini key, no Python, no server to run — just connect and start querying.
 
 - ⚡ **Zero setup** — nothing to install, configure, or maintain
 - 🔑 **No API keys** — skip the ScrapeCreators and Gemini keys entirely
@@ -302,19 +302,19 @@ For additional Claude Desktop integration troubleshooting, see the [MCP document
 ## FAQ
 
 **What is the easiest way to use the Google Ads Library MCP?**
-The easiest way is the hosted version from [Proxy (useproxy.dev)](https://useproxy.dev/). It requires no API keys, no installation, and no server — you connect it to ChatGPT, Claude, Cursor, or any MCP client and start querying immediately. You can [start for free](https://useproxy.dev/).
+The easiest way is the hosted version from [Proxy (useproxy.dev)](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp). It requires no API keys, no installation, and no server — you connect it to ChatGPT, Claude, Cursor, or any MCP client and start querying immediately. You can [start for free](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp).
 
 **Do I need an API key to use this MCP?**
-Only if you self-host. The [hosted version at useproxy.dev](https://useproxy.dev/) handles all data access for you, so no ScrapeCreators or Gemini keys are needed. Self-hosting requires a `SCRAPECREATORS_API_KEY` (and a Gemini key for video analysis).
+Only if you self-host. The [hosted version at useproxy.dev](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp) handles all data access for you, so no ScrapeCreators or Gemini keys are needed. Self-hosting requires a `SCRAPECREATORS_API_KEY` (and a Gemini key for video analysis).
 
 **Which MCP clients does it work with?**
 The hosted version works with ChatGPT, Claude (desktop, web and mobile), Cursor, Manus and any other MCP client. The self-hosted version works with local MCP clients such as Claude Desktop, Claude Code and Cursor, or as a remote server with a bearer token (see [Deploy to the cloud](#deploy-to-the-cloud)).
 
 **Is there a free version?**
-Yes — the [hosted version from Proxy](https://useproxy.dev/) offers a free tier so you can start analyzing ads without any setup.
+Yes — the [hosted version from Proxy](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp) offers a free tier so you can start analyzing ads without any setup.
 
 **Should I self-host or use the hosted version?**
-Use the [hosted version](https://useproxy.dev/) if you just want fast, reliable access to Google Ads Transparency Center data with zero maintenance — this fits most users. Self-host only if you want to modify or extend the server code yourself.
+Use the [hosted version](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp) if you just want fast, reliable access to Google Ads Transparency Center data with zero maintenance — this fits most users. Self-host only if you want to modify or extend the server code yourself.
 
 ---
 
@@ -343,4 +343,4 @@ This project is licensed under the MIT License.
 
 ---
 
-Made with ❤️ by the team at [Proxy](https://useproxy.dev/).
+Made with ❤️ by the team at [Proxy](https://useproxy.dev/?utm_source=github&utm_medium=readme&utm_campaign=google-ads-library-mcp).
